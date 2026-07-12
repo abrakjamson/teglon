@@ -1,0 +1,25 @@
+# Node.js dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime files
+.DS_Store
+.env
+.env.*
+
+# VS Code settings
+.vscode/
+
+# Python cache (if any)
+__pycache__/
+*.py[cod]
+*$py.class

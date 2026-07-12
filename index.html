@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101d25" />
+    <title>Teglon — The Quiet Geometry</title>
+  </head>
+  <body>
+    <main id="app" class="app-shell">
+      <header class="masthead">
+        <div class="mark" aria-hidden="true">✦</div>
+        <div>
+          <p class="eyebrow">A study in continuity</p>
+          <h1>TEGLON</h1>
+        </div>
+        <div class="header-rule" aria-hidden="true"></div>
+        <div class="cycle-readout">
+          <span class="readout-label">Cycle</span>
+          <span id="cycle-count">01 / 02</span>
+        </div>
+      </header>
+
+      <section class="game-layout" aria-label="Teglon puzzle">
+        <aside class="side-panel">
+          <div class="chapter">
+            <p class="eyebrow">The first exercise</p>
+            <h2 id="level-title">The Threefold Gate</h2>
+            <p id="level-description" class="description"></p>
+          </div>
+
+          <div class="instructions">
+            <div class="instruction">
+              <span class="instruction-glyph">⌁</span>
+              <p><strong>Place</strong><span>Drag a tile onto a matching chamber.</span></p>
+            </div>
+            <div class="instruction">
+              <span class="instruction-glyph">↻</span>
+              <p><strong>Turn</strong><span>Right-click, or tap a selected tile.</span></p>
+            </div>
+            <div class="instruction">
+              <span class="instruction-glyph">◌</span>
+              <p><strong>Attend</strong><span>Make one closed, unbroken line.</span></p>
+            </div>
+          </div>
+
+          <div class="side-actions">
+            <button id="reset-button" class="quiet-button" type="button">Begin again</button>
+            <button id="hint-button" class="quiet-button" type="button">Offer a hint</button>
+            <button id="sound-button" class="quiet-button quiet-button--icon" type="button" aria-pressed="true">
+              <span aria-hidden="true">◖</span> Sound
+            </button>
+          </div>
+
+          <div class="level-picker" aria-label="Choose exercise">
+            <p class="eyebrow">Exercises</p>
+            <div id="level-buttons" class="level-buttons"></div>
+          </div>
+        </aside>
+
+        <section class="board-panel">
+          <div class="board-frame">
+            <div class="frame-corner frame-corner--tl" aria-hidden="true"></div>
+            <div class="frame-corner frame-corner--tr" aria-hidden="true"></div>
+            <div class="frame-corner frame-corner--bl" aria-hidden="true"></div>
+            <div class="frame-corner frame-corner--br" aria-hidden="true"></div>
+            <svg id="game-board" viewBox="0 0 1000 700" role="application" aria-label="Teglon game board">
+              <defs>
+                <filter id="tile-shadow" x="-30%" y="-30%" width="160%" height="160%">
+                  <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#071116" flood-opacity=".45" />
+                </filter>
+                <filter id="soft-glow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="4" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+                <linearGradient id="hex-fill" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#1d92ad" />
+                  <stop offset="1" stop-color="#12657b" />
+                </linearGradient>
+                <linearGradient id="rhombus-fill" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#c66e47" />
+                  <stop offset="1" stop-color="#8e4438" />
+                </linearGradient>
+                <linearGradient id="groove-fill" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#d8ec79" />
+                  <stop offset=".55" stop-color="#95c957" />
+                  <stop offset="1" stop-color="#e0e984" />
+                </linearGradient>
+              </defs>
+              <g id="board-art"></g>
+              <g id="slot-layer"></g>
+              <g id="piece-layer"></g>
+              <g id="celebration-layer" pointer-events="none"></g>
+            </svg>
+            <div id="board-message" class="board-message" aria-live="polite"></div>
+          </div>
+          <div class="legend">
+            <span><i class="legend-swatch legend-swatch--blue"></i> hexagonal stone</span>
+            <span><i class="legend-swatch legend-swatch--ochre"></i> rhombic stone</span>
+            <span><i class="legend-swatch legend-swatch--line"></i> the unbroken path</span>
+          </div>
+        </section>
+      </section>
+
+      <footer class="footer-note">
+        <span>Slow hands. Clear edges.</span>
+        <span id="progress-note">0 of 6 stones placed</span>
+      </footer>
+      <div id="win-toast" class="win-toast" aria-live="assertive">
+        <span class="win-star" aria-hidden="true">✦</span>
+        <div>
+          <p class="eyebrow">The line is whole</p>
+          <strong id="win-title">A complete circuit</strong>
+        </div>
+        <button id="next-button" class="gold-button" type="button">Next exercise</button>
+      </div>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
