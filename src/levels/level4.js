@@ -12,7 +12,7 @@ export const level4 = {
     side: 3,
   },
   endpointMode: "center",
-  hint: { pieceId: "h4-h1-1", slotId: "H0", rotation: 4 },
+  hint: { pieceId: "r4-ro-1", slotId: "R0", rotation: 0 },
   slots: [
     {
       id: "H0",

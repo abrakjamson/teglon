@@ -152,6 +152,7 @@ let pieceElements = new Map();
 let selectedId = null;
 let dragState = null;
 let completedLevels = new Set();
+let winnerGlowVisible = false;
 let audioEnabled = true;
 let audioContext;
 
@@ -515,7 +516,7 @@ function renderPiece(piece) {
   }
   elements.group.classList.toggle("is-dragging", dragState?.id === piece.id);
   elements.group.classList.toggle("is-selected", selectedId === piece.id);
-  elements.group.classList.toggle("is-winner", completedLevels.has(level.id));
+  elements.group.classList.toggle("is-winner", winnerGlowVisible);
   elements.group.setAttribute("aria-pressed", selectedId === piece.id ? "true" : "false");
 }
 
@@ -767,6 +768,7 @@ function evaluate() {
 function win() {
   if (completedLevels.has(level.id)) return;
   completedLevels.add(level.id);
+  winnerGlowVisible = true;
   pieces.forEach(renderPiece);
   boardMessage.textContent = "A complete circuit";
   winTitle.textContent = levelIndex === levels.length - 1 ? "The circle closes" : "A complete circuit";
@@ -804,6 +806,7 @@ function closeWin() {
 
 function randomizeLevel() {
   closeWin();
+  winnerGlowVisible = false;
   pieces = new Map(level.pieces.map((piece, index) => [piece.id, createPieceState(piece, index)]));
   selectedId = null;
   dragState = null;

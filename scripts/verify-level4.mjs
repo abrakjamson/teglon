@@ -5,8 +5,7 @@
 //      scripts/emit-level4.mjs) and confirms it satisfies the exact
 //      win-condition logic (outside edges inactive, neighbor edges agree,
 //      resulting active-edge graph is a single 34-node cycle).
-//   3. Confirms the declared hint matches the intended solution's hex
-//      placement.
+//   3. Confirms the declared hint matches the intended solution's placement.
 //   4. Spot-checks a handful of "obvious" naive arrangements (identity
 //      order, all-zero rotations, simple pattern-block orderings) to
 //      confirm they do NOT solve the puzzle, per the design brief's
@@ -123,10 +122,12 @@ level4.slots.forEach((slot) => {
 const solutionValid = evaluateAssignment(level4, assignment);
 console.log(`Intended solution satisfies win condition: ${solutionValid ? "YES" : "NO (FAIL)"}`);
 
-// 3. Confirm the declared hint matches the intended solution's hex slot.
+// 3. Confirm the declared hint matches the intended solution.
 const hint = level4.hint;
-const hexAssignment = assignment.get(hint.slotId);
-const hintMatches = hexAssignment && hexAssignment.id === hint.pieceId && hexAssignment.rotation === hint.rotation;
+const hintAssignment = assignment.get(hint.slotId);
+const hintMatches = hintAssignment
+  && hintAssignment.id === hint.pieceId
+  && hintAssignment.rotation === hint.rotation;
 console.log(`Declared hint (${hint.pieceId}@${hint.slotId} rot${hint.rotation}) matches intended solution: ${hintMatches ? "YES" : "NO (FAIL)"}`);
 
 // 4. Spot-check naive arrangements fail.
