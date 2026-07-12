@@ -30,6 +30,16 @@ const RHOMBUS_EDGE_SEGMENTS = [
   [[-.25, -.4330127], [-.75, .4330127]],
   [[-.75, .4330127], [.25, .4330127]],
 ];
+const TRIANGLE_BASE_POINTS = [
+  [0, .5773503],
+  [-.5, -.2886751],
+  [.5, -.2886751],
+];
+const TRIANGLE_EDGE_SEGMENTS = [
+  [[0, .5773503], [-.5, -.2886751]],
+  [[-.5, -.2886751], [.5, -.2886751]],
+  [[.5, -.2886751], [0, .5773503]],
+];
 const PATTERN_PAIRS = {
   H1: [0, 1],
   H2: [0, 2],
@@ -38,7 +48,83 @@ const PATTERN_PAIRS = {
   RO: [0, 3],
   P0: [0, 2],
   P1: [1, 3],
+  T1: [0, 1],
 };
+
+// Per-shape geometry config: edgeCount/rotationCount define how many discrete
+// rotation states a piece has and how far (in edge-index steps) each state
+// shifts the active edges; angleStep is the visual SVG rotation degrees applied
+// per rotation step; usesSlotAngle marks shapes placed at non-zero screen
+// angles depending on their slot's position (rhombus + triangle), matching the
+// hex-vs-non-hex distinction already required for edgeMap remapping.
+const SHAPE_CONFIG = {
+  hex: {
+    edgeCount: 6,
+    rotationCount: 6,
+    basePoints: HEX_BASE_POINTS,
+    edgeSegments: HEX_EDGE_SEGMENTS,
+    angleStep: -60,
+    usesSlotAngle: false,
+  },
+  rhombus: {
+    edgeCount: 4,
+    rotationCount: 2,
+    basePoints: RHOMBUS_BASE_POINTS,
+    edgeSegments: RHOMBUS_EDGE_SEGMENTS,
+    angleStep: 180,
+    usesSlotAngle: true,
+  },
+  triangle: {
+    edgeCount: 3,
+    rotationCount: 3,
+    basePoints: TRIANGLE_BASE_POINTS,
+    edgeSegments: TRIANGLE_EDGE_SEGMENTS,
+    angleStep: 120,
+    usesSlotAngle: true,
+  },
+};
+
+function shapeConfig(shape) {
+  return SHAPE_CONFIG[shape];
+}
+
+// Tray (piece supply) layout: rendered independently of level.board.scale so
+// piece size in the tray never depends on the board's own zoom level (some
+// levels use a large board.scale for a small tight board, others a small
+// scale for a wide board - the tray must stay legible and non-overlapping in
+// both cases). TRAY_AREA is expressed in the SVG's fixed 0..1000 / 0..700
+// viewBox coordinates. computeTrayLayout() picks the column count (and thus
+// row count) that yields the largest piece scale (up to TRAY_SCALE_MAX) that
+// still fits every piece inside TRAY_AREA without overlap - this keeps small
+// piece counts (level3's 5) comfortably large while shrinking large piece
+// counts (level4's 34) enough to fit cleanly.
+const TRAY_AREA = { left: 45, right: 955, top: 552, bottom: 674 };
+const TRAY_SCALE_MAX = 66;
+const TRAY_CELL_PAD = 10;
+// Widest/tallest shape bounding-box factors (relative to `scale`), used to
+// convert a candidate cell size into a safe piece scale. Hex is both the
+// widest (points span x in [-1,1]) and tallest (y in [-.866,.866]) shape.
+const TRAY_SHAPE_WIDTH_FACTOR = 2;
+const TRAY_SHAPE_HEIGHT_FACTOR = 1.7320508;
+
+function computeTrayLayout(count) {
+  const areaWidth = TRAY_AREA.right - TRAY_AREA.left;
+  const areaHeight = TRAY_AREA.bottom - TRAY_AREA.top;
+  let best = null;
+  for (let columns = 1; columns <= count; columns += 1) {
+    const rows = Math.ceil(count / columns);
+    const cellWidth = areaWidth / columns;
+    const cellHeight = areaHeight / rows;
+    const scale = Math.min(
+      (cellWidth - TRAY_CELL_PAD) / TRAY_SHAPE_WIDTH_FACTOR,
+      (cellHeight - TRAY_CELL_PAD) / TRAY_SHAPE_HEIGHT_FACTOR,
+      TRAY_SCALE_MAX,
+    );
+    if (scale <= 0) continue;
+    if (!best || scale > best.scale) best = { columns, rows, cellWidth, cellHeight, scale };
+  }
+  return best || { columns: 1, rows: count, cellWidth: areaWidth, cellHeight: areaHeight, scale: TRAY_SCALE_MAX };
+}
 
 const boardSvg = document.querySelector("#game-board");
 const boardArt = document.querySelector("#board-art");
@@ -77,6 +163,7 @@ const patternLabel = {
   RO: "obtuse bend",
   P0: "parallel",
   P1: "parallel",
+  T1: "corner-to-corner",
 };
 
 function svgElement(tag, attributes = {}) {
@@ -128,24 +215,27 @@ function slotById(id) {
 }
 
 function pieceShapePoints(shape) {
-  return shape === "hex" ? HEX_BASE_POINTS : RHOMBUS_BASE_POINTS;
+  return shapeConfig(shape).basePoints;
 }
 
 function pieceEdgeSegments(shape) {
-  return shape === "hex" ? HEX_EDGE_SEGMENTS : RHOMBUS_EDGE_SEGMENTS;
+  return shapeConfig(shape).edgeSegments;
 }
 
 function rotationOffset(piece, rotation) {
-  return piece.shape === "hex" ? rotation : rotation * 2;
+  const config = shapeConfig(piece.shape);
+  return rotation * (config.edgeCount / config.rotationCount);
 }
 
 function physicalEdge(piece, localEdge, rotation) {
-  return (localEdge + rotationOffset(piece, rotation)) % (piece.shape === "hex" ? 6 : 4);
+  const edgeCount = shapeConfig(piece.shape).edgeCount;
+  return (localEdge + rotationOffset(piece, rotation)) % edgeCount;
 }
 
 function physicalRotation(piece, rotation, slot) {
-  const slotAngle = piece.shape === "rhombus" ? (slot?.angle || 0) : 0;
-  return slotAngle + (piece.shape === "hex" ? -rotation * 60 : rotation * 180);
+  const config = shapeConfig(piece.shape);
+  const slotAngle = config.usesSlotAngle ? (slot?.angle || 0) : 0;
+  return slotAngle + rotation * config.angleStep;
 }
 
 function patternPair(piece) {
@@ -153,7 +243,7 @@ function patternPair(piece) {
 }
 
 function activeEdges(piece, rotation) {
-  const size = piece.shape === "hex" ? 6 : 4;
+  const size = shapeConfig(piece.shape).edgeCount;
   return new Set(patternPair(piece).map((edge) => (edge + rotationOffset(piece, rotation)) % size));
 }
 
@@ -167,7 +257,7 @@ function edgeSegment(piece, localEdge, rotation, slot) {
   const segment = pieceEdgeSegments(piece.shape)[localEdge];
   const angle = physicalRotation(piece, rotation, slot);
   const loose = slot.loose === true;
-  const scale = loose ? level.board.scale * .58 : level.board.scale;
+  const scale = loose ? computeTrayLayout(level.pieces.length).scale : level.board.scale;
   if (loose) {
     return segment.map((point) => {
       const rotated = rotatePoint(point, angle);
@@ -175,11 +265,12 @@ function edgeSegment(piece, localEdge, rotation, slot) {
     });
   }
   const physical = physicalEdge(piece, localEdge, rotation);
-  const visualIndex = piece.shape === "rhombus"
+  const usesSlotAngle = shapeConfig(piece.shape).usesSlotAngle;
+  const visualIndex = usesSlotAngle
     ? (slot.edgeMap?.[physical] ?? physical)
     : physical;
   const target = pieceEdgeSegments(piece.shape)[visualIndex].map((point) => {
-    const rotated = rotatePoint(point, piece.shape === "rhombus" ? (slot.angle || 0) : 0);
+    const rotated = rotatePoint(point, usesSlotAngle ? (slot.angle || 0) : 0);
     const center = boardPoint(slot.center);
     return [center[0] + rotated[0] * scale, center[1] + rotated[1] * scale];
   });
@@ -205,15 +296,16 @@ function endpointFor(piece, slot, localEdge, rotation, endpointBit = null) {
 
 function physicalEndpoint(piece, slot, physicalEdge, rotation) {
   const offset = rotationOffset(piece, rotation);
-  const localEdge = (physicalEdge - offset + (piece.shape === "hex" ? 6 : 4))
-    % (piece.shape === "hex" ? 6 : 4);
+  const edgeCount = shapeConfig(piece.shape).edgeCount;
+  const localEdge = (physicalEdge - offset + edgeCount) % edgeCount;
   return endpointFor(piece, slot, localEdge, rotation, localBit(piece, localEdge));
 }
 
 function piecePolygon(piece, slot, rotation, loose = false) {
-  const angle = loose ? 0 : (piece.shape === "rhombus" ? (slot?.angle || 0) : 0);
+  const usesSlotAngle = shapeConfig(piece.shape).usesSlotAngle;
+  const angle = loose ? 0 : (usesSlotAngle ? (slot?.angle || 0) : 0);
   const center = loose ? piece.position : boardPoint(slot.center);
-  const scale = loose ? level.board.scale * .58 : level.board.scale;
+  const scale = loose ? computeTrayLayout(level.pieces.length).scale : level.board.scale;
   const points = pieceShapePoints(piece.shape).map((point) => {
     const rotated = rotatePoint(point, angle);
     return [center[0] + rotated[0] * scale, center[1] + rotated[1] * scale];
@@ -229,7 +321,7 @@ function groovePath(piece, slot, loose = false) {
   const start = endpointFor(piece, slot, localStart, rotation, localBit(piece, localStart));
   const end = endpointFor(piece, slot, localEnd, rotation, localBit(piece, localEnd));
   const center = loose ? piece.position : boardPoint(slot.center);
-  const scale = loose ? level.board.scale * .58 : level.board.scale;
+  const scale = loose ? computeTrayLayout(level.pieces.length).scale : level.board.scale;
   const pairClass = piece.pattern;
   const curveBias = {
     H1: [0, 0],
@@ -239,6 +331,7 @@ function groovePath(piece, slot, loose = false) {
     RO: [-.08, 0],
     P0: [0, -.05],
     P1: [0, .05],
+    T1: [0, .04],
   }[pairClass] || [0, 0];
   const control = [
     center[0] + curveBias[0] * scale,
@@ -248,39 +341,23 @@ function groovePath(piece, slot, loose = false) {
 }
 
 function trayPosition(index, count, shape) {
-  const columns = level.pieces.length > 9 ? 8 : 3;
-  const row = Math.floor(index / columns);
-  const column = index % columns;
-  const width = level.pieces.length > 9 ? 104 : 150;
-  const startX = level.pieces.length > 9 ? 105 : 245;
-  const y = level.pieces.length > 9 ? 608 + row * 45 : 565 + row * 54;
-  return [startX + column * width, y + (shape === "rhombus" ? 0 : 2)];
+  const layout = computeTrayLayout(count);
+  const rowCount = Math.ceil(count / layout.columns);
+  const row = Math.floor(index / layout.columns);
+  const itemsInRow = row === rowCount - 1 ? count - layout.columns * row : layout.columns;
+  const rowOffset = (layout.columns - itemsInRow) / 2;
+  const column = (index % layout.columns) + rowOffset;
+  const x = TRAY_AREA.left + layout.cellWidth * (column + .5);
+  const y = TRAY_AREA.top + layout.cellHeight * (row + .5);
+  return [x, y + (shape === "hex" ? 2 : 0)];
 }
 
 function makeBoardOutline() {
+  // The slot layer's own shapes (see makeSlots) already trace the puzzle's
+  // true outline, so no separate decorative frame is drawn here - a fixed or
+  // auto-fit outer hexagon either mismatched irregular layouts (level3) or
+  // was simply redundant with the real slot outlines.
   boardArt.replaceChildren();
-  const center = boardPoint([level.board.macroCenter[0], 0]);
-  const radius = level.board.scale * level.board.side;
-  const points = Array.from({ length: 6 }, (_, index) => {
-    const angle = index * 60 * Math.PI / 180;
-    return [center[0] + radius * Math.cos(angle), center[1] + radius * Math.sin(angle)];
-  });
-  const outline = svgElement("polygon", {
-    points: formatPoints(points),
-    class: "board-outline",
-  });
-  boardArt.append(outline);
-  const inner = svgElement("polygon", {
-    points: formatPoints(points.map(([x, y]) => [
-      center[0] + (x - center[0]) * .96,
-      center[1] + (y - center[1]) * .96,
-    ])),
-    fill: "none",
-    stroke: "rgba(211,170,96,.13)",
-    "stroke-width": "1",
-    "stroke-dasharray": "2 9",
-  });
-  boardArt.append(inner);
 }
 
 function makeSlots() {
@@ -290,7 +367,7 @@ function makeSlots() {
     const group = svgElement("g", { class: "slot", "data-slot": slot.id });
     const shapePoints = pieceShapePoints(slot.shape);
     const transformed = shapePoints.map((point) => {
-      const angle = slot.shape === "rhombus" ? slot.angle : 0;
+      const angle = shapeConfig(slot.shape).usesSlotAngle ? slot.angle : 0;
       const rotated = rotatePoint(point, angle);
       const center = boardPoint(slot.center);
       return [
@@ -337,6 +414,19 @@ function clearHintHighlight() {
   slotElements.forEach(({ polygon }) => polygon.classList.remove("is-hint"));
 }
 
+function finishHint(pieceId) {
+  clearHintHighlight();
+  // The hint temporarily marks its piece as "selected" so its groove reads
+  // clearly; once the highlight animation ends, that selection must be
+  // released too, otherwise the piece keeps glowing indefinitely (the
+  // is-selected filter has no other timeout of its own).
+  if (selectedId === pieceId) {
+    selectedId = null;
+    renderPieces();
+    updateSlotHighlights();
+  }
+}
+
 function offerHint() {
   if (completedLevels.has(level.id)) return;
   const hint = level.hint;
@@ -359,7 +449,7 @@ function offerHint() {
   renderPieces();
   updateSlotHighlights();
   playSound("hint");
-  window.setTimeout(clearHintHighlight, 2800);
+  window.setTimeout(() => finishHint(piece.id), 2800);
 }
 
 function createPieceState(definition, index) {
@@ -377,7 +467,7 @@ function createPieceElement(piece) {
     class: `piece ${piece.shape}`,
     tabindex: "0",
     role: "button",
-    "aria-label": `${piece.shape === "hex" ? "Hexagon" : "Rhombus"} groove, ${patternLabel[piece.pattern]}`,
+    "aria-label": `${{ hex: "Hexagon", rhombus: "Rhombus", triangle: "Triangle" }[piece.shape]} groove, ${patternLabel[piece.pattern]}`,
     "data-piece": piece.id,
   });
   const body = svgElement("polygon", { class: "piece-body" });

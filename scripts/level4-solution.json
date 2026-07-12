@@ -1,0 +1,312 @@
+{
+  "cycle": [
+    "H0",
+    "A10",
+    "A13",
+    "A14",
+    "A15",
+    "A16",
+    "A17",
+    "A11",
+    "A12",
+    "A8",
+    "A7",
+    "A4",
+    "R3",
+    "R4",
+    "R5",
+    "R6",
+    "R7",
+    "R8",
+    "R9",
+    "R10",
+    "R11",
+    "R12",
+    "A9",
+    "A5",
+    "R13",
+    "R14",
+    "R0",
+    "R1",
+    "R2",
+    "A3",
+    "A2",
+    "A1",
+    "A0",
+    "A6"
+  ],
+  "solved": {
+    "H0": {
+      "pattern": "H1",
+      "rotation": 4,
+      "pair": [
+        4,
+        5
+      ]
+    },
+    "A0": {
+      "pattern": "T1",
+      "rotation": 0,
+      "pair": [
+        0,
+        1
+      ]
+    },
+    "A1": {
+      "pattern": "T1",
+      "rotation": 1,
+      "pair": [
+        1,
+        2
+      ]
+    },
+    "A2": {
+      "pattern": "T1",
+      "rotation": 0,
+      "pair": [
+        0,
+        1
+      ]
+    },
+    "A3": {
+      "pattern": "T1",
+      "rotation": 0,
+      "pair": [
+        0,
+        1
+      ]
+    },
+    "A4": {
+      "pattern": "T1",
+      "rotation": 0,
+      "pair": [
+        0,
+        1
+      ]
+    },
+    "A5": {
+      "pattern": "T1",
+      "rotation": 1,
+      "pair": [
+        1,
+        2
+      ]
+    },
+    "A6": {
+      "pattern": "T1",
+      "rotation": 2,
+      "pair": [
+        0,
+        2
+      ]
+    },
+    "A7": {
+      "pattern": "T1",
+      "rotation": 2,
+      "pair": [
+        0,
+        2
+      ]
+    },
+    "A8": {
+      "pattern": "T1",
+      "rotation": 2,
+      "pair": [
+        0,
+        2
+      ]
+    },
+    "A9": {
+      "pattern": "T1",
+      "rotation": 0,
+      "pair": [
+        0,
+        1
+      ]
+    },
+    "A10": {
+      "pattern": "T1",
+      "rotation": 0,
+      "pair": [
+        0,
+        1
+      ]
+    },
+    "A11": {
+      "pattern": "T1",
+      "rotation": 1,
+      "pair": [
+        1,
+        2
+      ]
+    },
+    "A12": {
+      "pattern": "T1",
+      "rotation": 0,
+      "pair": [
+        0,
+        1
+      ]
+    },
+    "A13": {
+      "pattern": "T1",
+      "rotation": 2,
+      "pair": [
+        0,
+        2
+      ]
+    },
+    "A14": {
+      "pattern": "T1",
+      "rotation": 2,
+      "pair": [
+        0,
+        2
+      ]
+    },
+    "A15": {
+      "pattern": "T1",
+      "rotation": 1,
+      "pair": [
+        1,
+        2
+      ]
+    },
+    "A16": {
+      "pattern": "T1",
+      "rotation": 1,
+      "pair": [
+        1,
+        2
+      ]
+    },
+    "A17": {
+      "pattern": "T1",
+      "rotation": 0,
+      "pair": [
+        0,
+        1
+      ]
+    },
+    "R0": {
+      "pattern": "RO",
+      "rotation": 0,
+      "pair": [
+        0,
+        3
+      ]
+    },
+    "R1": {
+      "pattern": "P1",
+      "rotation": 0,
+      "pair": [
+        1,
+        3
+      ]
+    },
+    "R2": {
+      "pattern": "RA",
+      "rotation": 1,
+      "pair": [
+        2,
+        3
+      ]
+    },
+    "R3": {
+      "pattern": "RA",
+      "rotation": 0,
+      "pair": [
+        0,
+        1
+      ]
+    },
+    "R4": {
+      "pattern": "P0",
+      "rotation": 0,
+      "pair": [
+        0,
+        2
+      ]
+    },
+    "R5": {
+      "pattern": "RO",
+      "rotation": 1,
+      "pair": [
+        1,
+        2
+      ]
+    },
+    "R6": {
+      "pattern": "P1",
+      "rotation": 0,
+      "pair": [
+        1,
+        3
+      ]
+    },
+    "R7": {
+      "pattern": "P1",
+      "rotation": 0,
+      "pair": [
+        1,
+        3
+      ]
+    },
+    "R8": {
+      "pattern": "P0",
+      "rotation": 0,
+      "pair": [
+        0,
+        2
+      ]
+    },
+    "R9": {
+      "pattern": "P0",
+      "rotation": 0,
+      "pair": [
+        0,
+        2
+      ]
+    },
+    "R10": {
+      "pattern": "RO",
+      "rotation": 0,
+      "pair": [
+        0,
+        3
+      ]
+    },
+    "R11": {
+      "pattern": "P1",
+      "rotation": 0,
+      "pair": [
+        1,
+        3
+      ]
+    },
+    "R12": {
+      "pattern": "RA",
+      "rotation": 0,
+      "pair": [
+        0,
+        1
+      ]
+    },
+    "R13": {
+      "pattern": "RA",
+      "rotation": 0,
+      "pair": [
+        0,
+        1
+      ]
+    },
+    "R14": {
+      "pattern": "P0",
+      "rotation": 0,
+      "pair": [
+        0,
+        2
+      ]
+    }
+  }
+}
