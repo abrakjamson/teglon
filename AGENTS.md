@@ -8,6 +8,14 @@ supports (`hex`, `rhombus`, `triangle`). If a new shape is genuinely required,
 see "When a new shape is needed" at the end — that is engine work, not
 level-authoring work, and should not be delegated the same way.
 
+Good puzzles:
+- Have many possible, and different (not just whole-puzzle rotations), pieces that could start
+- Require 10+ pieces
+- Use multiple groove patterns for each piece shape (triangles exempted)
+- Form an overall regular polygon
+- Grooves are NOT symmetrical across the same axis as the overall regular polygon
+- Let the player form some intuition about placement as they progress
+
 ## 1. Mental model of the puzzle data
 
 Each level is a plain data object (`src/levels/levelN.js`) with no engine
