@@ -88,17 +88,9 @@ function shapeConfig(shape) {
   return SHAPE_CONFIG[shape];
 }
 
-// Tray (piece supply) layout: rendered independently of level.board.scale so
-// piece size in the tray never depends on the board's own zoom level (some
-// levels use a large board.scale for a small tight board, others a small
-// scale for a wide board - the tray must stay legible and non-overlapping in
-// both cases). TRAY_AREA is expressed in the SVG's fixed 0..1000 / 0..700
-// viewBox coordinates. computeTrayLayout() picks the column count (and thus
-// row count) that yields the largest piece scale (up to TRAY_SCALE_MAX) that
-// still fits every piece inside TRAY_AREA without overlap - this keeps small
-// piece counts (level3's 5) comfortably large while shrinking large piece
-// counts (level4's 34) enough to fit cleanly.
-const TRAY_AREA = { left: 45, right: 955, top: 552, bottom: 674 };
+// Large inventories extend the SVG drawer downward instead of shrinking all
+// loose pieces into the original fixed-height strip.
+const TRAY_AREA = { left: 45, right: 955, minTop: 552 };
 const TRAY_SCALE_MAX = 66;
 const TRAY_CELL_PAD = 10;
 // Widest/tallest shape bounding-box factors (relative to `scale`), used to
@@ -106,24 +98,35 @@ const TRAY_CELL_PAD = 10;
 // widest (points span x in [-1,1]) and tallest (y in [-.866,.866]) shape.
 const TRAY_SHAPE_WIDTH_FACTOR = 2;
 const TRAY_SHAPE_HEIGHT_FACTOR = 1.7320508;
+const TRAY_SHAPE_SCALE_FACTOR = {
+  hex: 1,
+  rhombus: 1.25,
+  triangle: 1.6,
+};
 
 function computeTrayLayout(count) {
   const areaWidth = TRAY_AREA.right - TRAY_AREA.left;
-  const areaHeight = TRAY_AREA.bottom - TRAY_AREA.top;
-  let best = null;
-  for (let columns = 1; columns <= count; columns += 1) {
-    const rows = Math.ceil(count / columns);
-    const cellWidth = areaWidth / columns;
-    const cellHeight = areaHeight / rows;
-    const scale = Math.min(
-      (cellWidth - TRAY_CELL_PAD) / TRAY_SHAPE_WIDTH_FACTOR,
-      (cellHeight - TRAY_CELL_PAD) / TRAY_SHAPE_HEIGHT_FACTOR,
-      TRAY_SCALE_MAX,
-    );
-    if (scale <= 0) continue;
-    if (!best || scale > best.scale) best = { columns, rows, cellWidth, cellHeight, scale };
-  }
-  return best || { columns: 1, rows: count, cellWidth: areaWidth, cellHeight: areaHeight, scale: TRAY_SCALE_MAX };
+  const columns = Math.min(count, count <= 10 ? count : count <= 20 ? 6 : 8);
+  const rows = Math.ceil(count / columns);
+  const cellWidth = areaWidth / columns;
+  const targetScale = count <= 10 ? TRAY_SCALE_MAX : count <= 20 ? 58 : 50;
+  const scale = Math.min(
+    (cellWidth - TRAY_CELL_PAD) / TRAY_SHAPE_WIDTH_FACTOR,
+    targetScale,
+  );
+  const cellHeight = scale * TRAY_SHAPE_HEIGHT_FACTOR + 16;
+  const top = Math.max(TRAY_AREA.minTop, boardContentBottom() + 38);
+  const bottom = top + rows * cellHeight;
+  return {
+    columns,
+    rows,
+    cellWidth,
+    cellHeight,
+    scale,
+    top,
+    bottom,
+    viewHeight: Math.ceil(Math.max(700, bottom + 24)),
+  };
 }
 
 const boardSvg = document.querySelector("#game-board");
@@ -142,6 +145,7 @@ const hintButton = document.querySelector("#hint-button");
 const soundButton = document.querySelector("#sound-button");
 const winToast = document.querySelector("#win-toast");
 const winTitle = document.querySelector("#win-title");
+const returnButton = document.querySelector("#return-button");
 const nextButton = document.querySelector("#next-button");
 
 let levelIndex = 0;
@@ -153,6 +157,7 @@ let selectedId = null;
 let dragState = null;
 let completedLevels = new Set();
 let winnerGlowVisible = false;
+let currentTrayLayout = null;
 let audioEnabled = true;
 let audioContext;
 
@@ -224,6 +229,31 @@ function boardScalePoint(point) {
   return [point[0] * level.board.scale, point[1] * level.board.scale];
 }
 
+function boardContentBottom() {
+  return Math.max(...level.slots.flatMap((slot) => {
+    const angle = shapeConfig(slot.shape).usesSlotAngle ? (slot.angle || 0) : 0;
+    const center = boardPoint(slot.center);
+    return pieceShapePoints(slot.shape).map((point) => {
+      const rotated = rotatePoint(point, angle);
+      return center[1] + rotated[1] * level.board.scale;
+    });
+  }));
+}
+
+function getTrayLayout() {
+  return currentTrayLayout || computeTrayLayout(level.pieces.length);
+}
+
+function loosePieceScale(shape) {
+  return getTrayLayout().scale * TRAY_SHAPE_SCALE_FACTOR[shape];
+}
+
+function updateBoardViewport() {
+  currentTrayLayout = computeTrayLayout(level.pieces.length);
+  boardSvg.setAttribute("viewBox", `0 0 1000 ${currentTrayLayout.viewHeight}`);
+  boardSvg.style.setProperty("--board-view-height", currentTrayLayout.viewHeight);
+}
+
 function slotById(id) {
   return level.slots.find((slot) => slot.id === id);
 }
@@ -271,7 +301,7 @@ function edgeSegment(piece, localEdge, rotation, slot) {
   const segment = pieceEdgeSegments(piece.shape)[localEdge];
   const angle = physicalRotation(piece, rotation, slot);
   const loose = slot.loose === true;
-  const scale = loose ? computeTrayLayout(level.pieces.length).scale : level.board.scale;
+  const scale = loose ? loosePieceScale(piece.shape) : level.board.scale;
   if (loose) {
     return segment.map((point) => {
       const rotated = rotatePoint(point, angle);
@@ -319,7 +349,7 @@ function piecePolygon(piece, slot, rotation, loose = false) {
   const usesSlotAngle = shapeConfig(piece.shape).usesSlotAngle;
   const angle = loose ? 0 : (usesSlotAngle ? (slot?.angle || 0) : 0);
   const center = loose ? piece.position : boardPoint(slot.center);
-  const scale = loose ? computeTrayLayout(level.pieces.length).scale : level.board.scale;
+  const scale = loose ? loosePieceScale(piece.shape) : level.board.scale;
   const points = pieceShapePoints(piece.shape).map((point) => {
     const rotated = rotatePoint(point, angle);
     return [center[0] + rotated[0] * scale, center[1] + rotated[1] * scale];
@@ -423,7 +453,7 @@ function groovePath(piece, slot, loose = false) {
   const start = endpointFor(piece, slot, localStart, rotation, localBit(piece, localStart));
   const end = endpointFor(piece, slot, localEnd, rotation, localBit(piece, localEnd));
   const center = loose ? piece.position : boardPoint(slot.center);
-  const scale = loose ? computeTrayLayout(level.pieces.length).scale : level.board.scale;
+  const scale = loose ? loosePieceScale(piece.shape) : level.board.scale;
   const startSegment = edgeSegment(piece, localStart, rotation, slot);
   const endSegment = edgeSegment(piece, localEnd, rotation, slot);
   const startNormal = inwardNormal(startSegment, center);
@@ -432,23 +462,27 @@ function groovePath(piece, slot, loose = false) {
 }
 
 function trayPosition(index, count, shape) {
-  const layout = computeTrayLayout(count);
+  const layout = getTrayLayout();
   const rowCount = Math.ceil(count / layout.columns);
   const row = Math.floor(index / layout.columns);
   const itemsInRow = row === rowCount - 1 ? count - layout.columns * row : layout.columns;
   const rowOffset = (layout.columns - itemsInRow) / 2;
   const column = (index % layout.columns) + rowOffset;
   const x = TRAY_AREA.left + layout.cellWidth * (column + .5);
-  const y = TRAY_AREA.top + layout.cellHeight * (row + .5);
+  const y = layout.top + layout.cellHeight * (row + .5);
   return [x, y + (shape === "hex" ? 2 : 0)];
 }
 
 function makeBoardOutline() {
-  // The slot layer's own shapes (see makeSlots) already trace the puzzle's
-  // true outline, so no separate decorative frame is drawn here - a fixed or
-  // auto-fit outer hexagon either mismatched irregular layouts (level3) or
-  // was simply redundant with the real slot outlines.
   boardArt.replaceChildren();
+  const dividerY = getTrayLayout().top - 19;
+  boardArt.append(svgElement("line", {
+    class: "tray-divider",
+    x1: TRAY_AREA.left,
+    x2: TRAY_AREA.right,
+    y1: dividerY,
+    y2: dividerY,
+  }));
 }
 
 function makeSlots() {
@@ -590,7 +624,9 @@ function renderPiece(piece) {
   if (!elements) return;
   const slot = piece.slotId ? slotById(piece.slotId) : null;
   const loose = !slot;
+  const renderScale = loose ? loosePieceScale(piece.shape) : level.board.scale;
   const points = piecePolygon(piece, slot || { center: [0, 0] }, piece.rotation, loose);
+  elements.group.style.setProperty("--groove-width", `${renderScale * .04}`);
   elements.body.setAttribute("points", formatPoints(points));
   elements.groove.setAttribute("d", groovePath(piece, slot || {
     center: [
@@ -645,9 +681,10 @@ function setPiecePosition(piece, point) {
 
 function svgPointFromEvent(event) {
   const rect = boardSvg.getBoundingClientRect();
+  const viewBox = boardSvg.viewBox.baseVal;
   return [
-    (event.clientX - rect.left) * 1000 / rect.width,
-    (event.clientY - rect.top) * 700 / rect.height,
+    viewBox.x + (event.clientX - rect.left) * viewBox.width / rect.width,
+    viewBox.y + (event.clientY - rect.top) * viewBox.height / rect.height,
   ];
 }
 
@@ -704,7 +741,6 @@ function beginPointer(event, pieceId) {
   if (event.pointerType === "touch") {
     if (selectedId === pieceId) {
       rotatePiece(pieceId);
-      selectedId = null;
     } else {
       selectedId = pieceId;
       playSound("select");
@@ -824,7 +860,7 @@ function isConnectedGraph(graph) {
 function evaluate() {
   const placedCount = [...pieces.values()].filter((piece) => piece.slotId).length;
   progressNote.textContent = `${placedCount} of ${pieces.size} stones placed`;
-  boardMessage.textContent = placedCount === pieces.size ? "Listening for the whole line" : "The stones are waiting";
+  boardMessage.textContent = placedCount === pieces.size ? "Listening for the whole line" : "";
   if (placedCount !== pieces.size) return false;
 
   const slotPieces = new Map(level.slots.map((slot) => [
@@ -925,9 +961,11 @@ function renderLevelButtons() {
 function loadLevel(index) {
   levelIndex = index;
   level = levels[levelIndex];
+  currentTrayLayout = null;
   levelTitle.textContent = level.title;
   levelDescription.textContent = level.description;
   cycleCount.textContent = `${String(levelIndex + 1).padStart(2, "0")} / ${String(levels.length).padStart(2, "0")}`;
+  updateBoardViewport();
   makeBoardOutline();
   makeSlots();
   randomizeLevel();
@@ -999,5 +1037,6 @@ soundButton.addEventListener("click", () => {
   if (audioEnabled) playSound("select");
 });
 nextButton.addEventListener("click", loadNextLevel);
+returnButton.addEventListener("click", closeWin);
 
 loadLevel(0);

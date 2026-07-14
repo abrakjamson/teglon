@@ -11,10 +11,7 @@
     <main id="app" class="app-shell">
       <header class="masthead">
         <div class="mark" aria-hidden="true">✦</div>
-        <div>
-          <p class="eyebrow">A study in continuity</p>
-          <h1>TEGLON</h1>
-        </div>
+        <h1>TEGLON</h1>
         <div class="header-rule" aria-hidden="true"></div>
         <div class="cycle-readout">
           <span class="readout-label">Cycle</span>
@@ -107,7 +104,6 @@
       </section>
 
       <footer class="footer-note">
-        <span>Slow hands. Clear edges.</span>
         <span id="progress-note">0 of 6 stones placed</span>
       </footer>
       <div id="win-toast" class="win-toast" aria-live="assertive">
@@ -116,7 +112,10 @@
           <p class="eyebrow">The line is whole</p>
           <strong id="win-title">A complete circuit</strong>
         </div>
-        <button id="next-button" class="gold-button" type="button">Next exercise</button>
+        <div class="win-actions">
+          <button id="return-button" class="quiet-button" type="button">Return to puzzle</button>
+          <button id="next-button" class="gold-button" type="button">Next exercise</button>
+        </div>
       </div>
     </main>
     <script type="module" src="/src/main.js"></script>
