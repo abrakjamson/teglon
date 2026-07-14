@@ -64,9 +64,12 @@ A level has three parts:
 - **`hint`**: `{ pieceId, slotId, rotation }` — one placement from a *known
   valid solution*, shown to the player as a hint. **You must derive this from
   an actual verified solution**, not guess it.
-- **`endpointMode`**: `"center"` for all levels so far (grooves are drawn edge
-  midpoint → shape center → edge midpoint). Leave this as `"center"` unless
-  you have a specific reason to change rendering behavior.
+- **`endpointMode`**: `"center"` for all levels so far. Groove endpoints remain
+  at edge midpoints; the renderer uses short straight edge-normal leads around
+  a mathematically sampled polar-rose knot. This makes each crossing exactly
+  perpendicular to the touched edge while adding a centered ornamental motif.
+  Leave this as `"center"` unless you have a specific reason to change
+  rendering behavior.
 
 ## 2. The win condition (what "valid" means)
 

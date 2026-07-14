@@ -191,6 +191,19 @@ function addPoint(left, right) {
   return [left[0] + right[0], left[1] + right[1]];
 }
 
+function multiplyPoint(point, factor) {
+  return [point[0] * factor, point[1] * factor];
+}
+
+function normalizePoint(point) {
+  const length = Math.hypot(point[0], point[1]);
+  return length === 0 ? [0, 0] : multiplyPoint(point, 1 / length);
+}
+
+function dotPoint(left, right) {
+  return left[0] * right[0] + left[1] * right[1];
+}
+
 function distance(left, right) {
   return Math.hypot(left[0] - right[0], left[1] - right[1]);
 }
@@ -314,6 +327,94 @@ function piecePolygon(piece, slot, rotation, loose = false) {
   return points;
 }
 
+function inwardNormal(segment, center) {
+  const edge = [segment[1][0] - segment[0][0], segment[1][1] - segment[0][1]];
+  const normal = normalizePoint([-edge[1], edge[0]]);
+  const midpoint = [
+    (segment[0][0] + segment[1][0]) / 2,
+    (segment[0][1] + segment[1][1]) / 2,
+  ];
+  const towardCenter = [center[0] - midpoint[0], center[1] - midpoint[1]];
+  return dotPoint(normal, towardCenter) >= 0 ? normal : multiplyPoint(normal, -1);
+}
+
+function grooveCurvePath(start, end, startNormal, endNormal, piece, scale, center) {
+  // Straight normal leads make the edge crossings exactly perpendicular. A
+  // polar rose supplies a single-stroke ornamental knot in the tile center.
+  const style = {
+    H1: { radius: .5, lead: .13, phase: 0, petals: 2 },
+    H2: { radius: .48, lead: .13, phase: Math.PI / 6, petals: 2 },
+    H3: { radius: .5, lead: .13, phase: Math.PI / 4, petals: 2 },
+    RA: { radius: .26, lead: .1, phase: 0, petals: 2 },
+    RO: { radius: .26, lead: .1, phase: Math.PI / 4, petals: 2 },
+    P0: { radius: .27, lead: .1, phase: Math.PI / 8, petals: 2 },
+    P1: { radius: .27, lead: .1, phase: -Math.PI / 8, petals: 2 },
+    T1: { radius: .16, lead: .08, phase: -Math.PI / 2, petals: 3 },
+  }[piece.pattern] || {
+    radius: .25,
+    lead: .1,
+    phase: 0,
+    petals: 2,
+  };
+  const innerStart = addPoint(start, multiplyPoint(startNormal, scale * style.lead));
+  const innerEnd = addPoint(end, multiplyPoint(endNormal, scale * style.lead));
+  const axis = normalizePoint([innerEnd[0] - innerStart[0], innerEnd[1] - innerStart[1]]);
+  const crossAxis = [-axis[1], axis[0]];
+  const radius = scale * style.radius;
+  const approach = scale * .18;
+
+  function rosePointAt(t) {
+    const theta = 2 * Math.PI * t;
+    const angle = theta + style.phase;
+    const radial = radius * Math.sin(style.petals * theta);
+    return addPoint(
+      center,
+      addPoint(
+        multiplyPoint(axis, radial * Math.cos(angle)),
+        multiplyPoint(crossAxis, radial * Math.sin(angle)),
+      ),
+    );
+  }
+
+  function roseDerivativeAt(t) {
+    const theta = 2 * Math.PI * t;
+    const angle = theta + style.phase;
+    const radial = radius * Math.sin(style.petals * theta);
+    const radialDerivative = radius * style.petals * 2 * Math.PI
+      * Math.cos(style.petals * theta);
+    const angleDerivative = 2 * Math.PI;
+    const alongAxis = radialDerivative * Math.cos(angle)
+      - radial * Math.sin(angle) * angleDerivative;
+    const alongCrossAxis = radialDerivative * Math.sin(angle)
+      + radial * Math.cos(angle) * angleDerivative;
+    return addPoint(
+      multiplyPoint(axis, alongAxis),
+      multiplyPoint(crossAxis, alongCrossAxis),
+    );
+  }
+
+  const roseDirection = normalizePoint(roseDerivativeAt(0));
+  const startControl = addPoint(innerStart, multiplyPoint(startNormal, approach));
+  const centerArrival = addPoint(center, multiplyPoint(roseDirection, -approach));
+  let path = `M ${start[0]} ${start[1]} L ${innerStart[0]} ${innerStart[1]}`;
+  path += ` C ${startControl[0]} ${startControl[1]} ${centerArrival[0]} ${centerArrival[1]} ${center[0]} ${center[1]}`;
+
+  const segmentCount = style.petals * 16;
+  for (let index = 0; index < segmentCount; index += 1) {
+    const from = index / segmentCount;
+    const to = (index + 1) / segmentCount;
+    const fromPoint = rosePointAt(from);
+    const toPoint = rosePointAt(to);
+    const fromControl = addPoint(fromPoint, multiplyPoint(roseDerivativeAt(from), (to - from) / 3));
+    const toControl = addPoint(toPoint, multiplyPoint(roseDerivativeAt(to), -(to - from) / 3));
+    path += ` C ${fromControl[0]} ${fromControl[1]} ${toControl[0]} ${toControl[1]} ${toPoint[0]} ${toPoint[1]}`;
+  }
+  const centerDeparture = addPoint(center, multiplyPoint(roseDirection, approach));
+  const endControl = addPoint(innerEnd, multiplyPoint(endNormal, approach));
+  path += ` C ${centerDeparture[0]} ${centerDeparture[1]} ${endControl[0]} ${endControl[1]} ${innerEnd[0]} ${innerEnd[1]}`;
+  return `${path} L ${end[0]} ${end[1]}`;
+}
+
 function groovePath(piece, slot, loose = false) {
   const pair = patternPair(piece);
   const rotation = piece.rotation;
@@ -323,22 +424,11 @@ function groovePath(piece, slot, loose = false) {
   const end = endpointFor(piece, slot, localEnd, rotation, localBit(piece, localEnd));
   const center = loose ? piece.position : boardPoint(slot.center);
   const scale = loose ? computeTrayLayout(level.pieces.length).scale : level.board.scale;
-  const pairClass = piece.pattern;
-  const curveBias = {
-    H1: [0, 0],
-    H2: [-.1, .05],
-    H3: [0, 0],
-    RA: [.1, 0],
-    RO: [-.08, 0],
-    P0: [0, -.05],
-    P1: [0, .05],
-    T1: [0, .04],
-  }[pairClass] || [0, 0];
-  const control = [
-    center[0] + curveBias[0] * scale,
-    center[1] + curveBias[1] * scale,
-  ];
-  return `M ${start[0]} ${start[1]} Q ${control[0]} ${control[1]} ${end[0]} ${end[1]}`;
+  const startSegment = edgeSegment(piece, localStart, rotation, slot);
+  const endSegment = edgeSegment(piece, localEnd, rotation, slot);
+  const startNormal = inwardNormal(startSegment, center);
+  const endNormal = inwardNormal(endSegment, center);
+  return grooveCurvePath(start, end, startNormal, endNormal, piece, scale, center);
 }
 
 function trayPosition(index, count, shape) {
