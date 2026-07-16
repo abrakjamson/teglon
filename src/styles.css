@@ -284,6 +284,33 @@ h2 {
   stroke-dasharray: 2 7;
 }
 
+.drawer-return-zone {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease;
+}
+.drawer-return-zone.is-active {
+  cursor: pointer;
+  opacity: 1;
+  pointer-events: all;
+}
+.drawer-return-target {
+  fill: rgba(212, 166, 63, .14);
+  stroke: rgba(232, 195, 107, .95);
+  stroke-width: 2.5;
+  stroke-dasharray: 8 7;
+}
+.drawer-return-label {
+  fill: var(--gold-light);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: bold;
+  letter-spacing: .08em;
+  pointer-events: none;
+  text-anchor: middle;
+  text-transform: uppercase;
+}
+
 .board-outline {
   fill: rgba(25, 25, 28, .3);
   stroke: rgba(232, 226, 210, .12);

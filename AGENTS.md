@@ -2,7 +2,7 @@
 
 This document is a practical guide (and sub-agent delegation playbook) for
 adding new levels to the Teglon puzzle, based on what worked building levels
-1-4. It assumes you are **not** introducing a new piece shape — just new
+1-5. It assumes you are **not** introducing a new piece shape — just new
 boards/groove patterns built from the three shapes the engine already
 supports (`hex`, `rhombus`, `triangle`). If a new shape is genuinely required,
 see "When a new shape is needed" at the end — that is engine work, not
@@ -121,6 +121,8 @@ gives you exact solution counts.
      approach used instead: verify adjacency symmetry, verify the declared
      hint/solution actually satisfies the win condition end-to-end, and
      spot-check that a few "obvious" naive placements do NOT solve it).
+     Level 5 uses the same targeted strategy for a 40-piece board and also
+     verifies geometry edge ownership plus representative near-solutions.
    - Multiple solutions are fine as long as most "obvious"/naive arrangements
      still fail.
 4. **Write `scripts/verify-levelN.mjs`** (copy `verify-level.mjs` or
@@ -137,11 +139,11 @@ gives you exact solution counts.
 7. **Rebuild and smoke-test.** `npm run build`, then a quick Playwright
    check (install `-D`, use, uninstall afterward — don't leave it as a
    permanent dependency) confirming: the board renders with the right slot
-   count/shape and no overlapping dashed outlines, the tray shows all pieces
-   without overlap (uses `computeTrayLayout(level.pieces.length)` — no
-   per-level tray tuning needed, it's automatic), and the hint button
-   highlights the correct piece/slot without leaving a permanent glow after
-   it fades.
+   count/shape and no overlapping dashed outlines; the dynamically extended
+   drawer shows every shape at a usable size with no overlaps; desktop and
+   mobile viewBox scaling preserve drag placement; the mobile controls and
+   level picker do not overlap; and the hint highlights the correct
+   piece/slot without leaving a permanent glow after it fades.
 
 ## 4. Things that do NOT need to change for a new level
 
@@ -149,10 +151,10 @@ Because the engine is fully data-driven from `level.slots`/`level.pieces`,
 adding a level that reuses the existing three shapes requires **zero
 changes** to:
 - `SHAPE_CONFIG`, `PATTERN_PAIRS`, or any rendering geometry in `main.js`.
-- Tray layout code (`computeTrayLayout`) — it sizes automatically from
-  `level.pieces.length`.
+- Tray/viewBox layout (`computeTrayLayout`/`updateBoardViewport`) — it extends
+  the drawer and sizes loose pieces automatically from `level.pieces.length`.
 - `makeBoardOutline()` — board shape is conveyed entirely by the real slot
-  outlines; there is no separate outer-hex frame to draw or adjust.
+  outlines; this function only draws the automatic drawer divider.
 - CSS/theme.
 
 This means a new level is safe to delegate almost entirely to a sub-agent: it
@@ -161,7 +163,7 @@ one line in `index.js`.
 
 ## 5. Delegating level design to sub-agents
 
-This worked well for levels 3-4 and is the recommended approach for future
+This worked well for levels 3-5 and is the recommended approach for future
 levels:
 
 - **One sub-agent per level**, given:
@@ -189,9 +191,38 @@ levels:
   the full app or Playwright unless you want them to.
 - Good model choice for this kind of combinatorial/geometric reasoning +
   code-writing task: a capable general-purpose model (e.g. GPT-5.6 Sol)
-  worked well for levels 3/4.
+  worked well for levels 3-5.
 
-## 6. When a new shape IS needed
+## 6. Rendering and responsive UX invariants
+
+These are engine/UI conventions, not level data. Normal level authoring should
+not modify them:
+
+- **Groove math and puzzle math are separate.** `PATTERN_PAIRS`,
+  `activeEdges()`, and rotation arithmetic determine connectivity.
+  `grooveCurvePath()` is visual only.
+- Grooves use edge-midpoint endpoints, short straight inward-normal leads,
+  and a centered, mathematically sampled polar-rose knot. The straight leads
+  guarantee perpendicular joins between neighboring tiles.
+- Groove stroke width is proportional to the tile's actual render scale via
+  `--groove-width`. Do not restore a fixed global stroke width: it overwhelms
+  the small board tiles in levels 4-5.
+- Large inventories use a deeper multi-row drawer instead of shrinking into a
+  fixed strip. `TRAY_SHAPE_SCALE_FACTOR` normalizes loose hex/rhombus/triangle
+  visual sizes; `updateBoardViewport()` extends the SVG viewBox.
+- Because the viewBox height is dynamic, pointer conversion must use
+  `boardSvg.viewBox.baseVal`; never reintroduce a hard-coded 700-unit Y scale.
+- On touch, the first tap selects a tile and every subsequent tap rotates it
+  while preserving selection. Tapping a compatible slot places the selected
+  tile. Selecting a placed tile activates the highlighted drawer return zone;
+  tapping that zone returns the tile while keeping it selected.
+- The win card sits away from the puzzle on desktop. On narrow screens it is
+  dismissible with **Return to puzzle** and also offers **Next exercise**.
+  Dismissing it must preserve the winner glow; revisiting the level must not.
+- Below 920px, action buttons and the level picker remain in normal document
+  flow. Do not absolutely position the picker over the controls.
+
+## 7. When a new shape IS needed
 
 If a future level genuinely requires a shape beyond hex/rhombus/triangle
 (e.g. a square, pentagon, or a non-regular shape), that's an **engine
@@ -201,9 +232,9 @@ way a normal level is:
 - New entries needed in `SHAPE_CONFIG` (`basePoints`, `edgeSegments`,
   `angleStep`, `rotationCount`, `usesSlotAngle`) and possibly new
   `PATTERN_PAIRS` entries for the new shape's distinct groove topologies.
-- `TRAY_SHAPE_WIDTH_FACTOR`/`TRAY_SHAPE_HEIGHT_FACTOR` in `main.js` assume
-  hex is the widest/tallest shape for tray-scale computation — verify this
-  still holds, or generalize the tray sizing if the new shape is larger.
+- `TRAY_SHAPE_WIDTH_FACTOR`, `TRAY_SHAPE_HEIGHT_FACTOR`, and
+  `TRAY_SHAPE_SCALE_FACTOR` in `main.js` define normalized loose-piece sizing.
+  Add and verify the new shape there.
 - CSS/rendering for piece bodies, drag/rotate interactions, and the win
   overlay may need shape-specific tweaks.
 - Handle this yourself (or delegate as a distinct "extend the engine" task

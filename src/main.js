@@ -158,6 +158,7 @@ let dragState = null;
 let completedLevels = new Set();
 let winnerGlowVisible = false;
 let currentTrayLayout = null;
+let drawerReturnZone = null;
 let audioEnabled = true;
 let audioContext;
 
@@ -475,14 +476,42 @@ function trayPosition(index, count, shape) {
 
 function makeBoardOutline() {
   boardArt.replaceChildren();
-  const dividerY = getTrayLayout().top - 19;
-  boardArt.append(svgElement("line", {
+  const layout = getTrayLayout();
+  const dividerY = layout.top - 19;
+  const divider = svgElement("line", {
     class: "tray-divider",
     x1: TRAY_AREA.left,
     x2: TRAY_AREA.right,
     y1: dividerY,
     y2: dividerY,
-  }));
+  });
+  drawerReturnZone = svgElement("g", {
+    class: "drawer-return-zone",
+    "aria-hidden": "true",
+  });
+  const target = svgElement("rect", {
+    class: "drawer-return-target",
+    x: TRAY_AREA.left,
+    y: layout.top - 5,
+    width: TRAY_AREA.right - TRAY_AREA.left,
+    height: layout.bottom - layout.top + 10,
+    rx: 10,
+  });
+  const label = svgElement("text", {
+    class: "drawer-return-label",
+    x: (TRAY_AREA.left + TRAY_AREA.right) / 2,
+    y: layout.top - 27,
+  });
+  label.textContent = "Tap drawer to return selected tile";
+  drawerReturnZone.append(target, label);
+  drawerReturnZone.addEventListener("pointerdown", (event) => {
+    const selectedPiece = pieces.get(selectedId);
+    if (!selectedPiece?.slotId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    returnToTray(selectedPiece);
+  });
+  boardArt.append(divider, drawerReturnZone);
 }
 
 function makeSlots() {
@@ -532,6 +561,9 @@ function updateSlotHighlights() {
     polygon.classList.toggle("is-hot", Boolean(canReceive));
     polygon.classList.toggle("is-filled", occupied);
   });
+  const canReturn = Boolean(selectedId && pieces.get(selectedId)?.slotId);
+  drawerReturnZone?.classList.toggle("is-active", canReturn);
+  drawerReturnZone?.setAttribute("aria-hidden", String(!canReturn));
 }
 
 function clearHintHighlight() {
@@ -731,6 +763,7 @@ function returnToTray(piece) {
   piece.position = trayPosition(index, level.pieces.length, piece.shape);
   playSound("return");
   renderPieces();
+  evaluate();
 }
 
 function beginPointer(event, pieceId) {
